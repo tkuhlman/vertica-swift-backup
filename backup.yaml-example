@@ -1,0 +1,15 @@
+log_dir: /opt/vertica/log
+
+run_vbr: true  # Only one node in a cluster should be set to true
+backup_dir: /var/vertica/data/backup
+vbr_config: /opt/vertica/config/backup.ini
+
+dbname: my_db
+snapshot_name: west
+retain: 7
+warning: 1320  # Alert if backup takes longer than warning minutes
+
+swift_key: password
+swift_tenant: a_long_number
+swift_url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v1.0/ 
+swift_user: my_user
