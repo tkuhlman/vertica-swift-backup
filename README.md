@@ -1,11 +1,14 @@
+# Vertica Swift Backup
 Backup/Restore [Vertica](http://www.vertica.com/) to/from OpenStack [Swift](https://wiki.openstack.org/wiki/Swift)
 
-# Goals
+Install with `pip install vertica-swift-backup`
+
+## Goals
 - Nightly backups of the Vertica database sent to swift. The upload should take less than a day even for large databases.
 - Backups must be incrementally uploaded to conserve bandwidth used for each upload and space usage on swift.
 - Retention of historical backups (configurable)
 
-# Backups
+## Running Backups
 To backup a Vertica cluster on each node setup:
 - A backup directory. This should be on the same device as the Vertica data directory so that the hard link backup will work correctly.
 - A vbr configuration set to run a [hard link local](https://my.vertica.com/docs/7.0.x/HTML/index.htm#Authoring/AdministratorsGuide/BackupRestore/CreatingHardLinkLocalBackups.htm%3FTocPath%3DAdministrator's%20Guide%7CBacking%20Up%20and%20Restoring%20the%20Database%7C_____10) backup.
@@ -20,7 +23,7 @@ To backup a Vertica cluster on each node setup:
 
 If no previous backup DirectoryMetadata is found a full backup will be done otherwise an incremental.
 
-# Restores
+## Restores
 Like backups restores have both a slow swift component and a fast vbr component. Unlike backups the slow part comes
 first. Any of the retained backups can be restored simply by choosing the correct pickle and corresponding epoch
 files.
@@ -32,7 +35,7 @@ git repo and installed in /usr/local/share/vertica-swift-backup. The fabric scri
 directories on a test cluster and run vbr after the download finishes and do so in such a way as to not destroy
 existing data on that cluster.
 
-# Architecture
+## Architecture
 There are a number of key points about how swift and vertica work that explain the architecture of this script.
 
 - The included Vertica backup utility vbr.py is used to create a local backup of Vertica. This utility is written
@@ -48,8 +51,8 @@ There are a number of key points about how swift and vertica work that explain t
     the appropriate epoch information. This epoch data is stored in a few files which are simply uploaded to
     swift with an date in the filename.
 
-## Components
-### DirectoryMetadata
+### Components
+#### DirectoryMetadata
 This class contains the metadata information for files in any given snapshot. It is built using an ObjectStore.
 This is intended to be persisted on disk as a pickle and uploaded after the other files.
 In this way it acts as a sentinel file indicating the backup is complete.
@@ -57,15 +60,15 @@ Also two different instances of the class can be compared to determine files to 
 delete. This ability to compare the two sets along with the files being persisted to swift enables incremental backups,
 incremental downloads as well as delayed cleanup of backups.
 
-### ObjectStore
+#### ObjectStore
 ObjectStore is an abstract class which is implemented by SwiftStore and FSStore. These objects are used for all storage
 operations most notably the collecting of metadata for creation DirectoryMetadata objects and the download/upload as
 needed for backup/restore.
 
-### Tests
+#### Tests
 The tests reside in the top level tests directory and can be run with nose.
 
-## A note about directory paths
+### A note about directory paths
 Any on disk backups have a *base_dir* where backups reside and a prefix_dir where the specific backup being worked
 with resides. The first element of the prefix path is the vertica node name,
 the second the snapshot name. The prefix path is specified this way to match
@@ -81,24 +84,24 @@ layout in swift versus that on disk.
 The pickles are stored at the base_dir where the prefix_path starts also. These are not part of the normal backup,
 they must explicitly be uploaded/deleted as needed.
 
-# Future work
-## Use more swift containers
+## Future work
+### Use more swift containers
 Occasionally the get_metadata command fails and must be retried. I talked with some swift developers about this and they report that it
 is known that performance degrades when there are greater than 500k files in a container. Doing a retry nearly always works fine,
 but a container per node help improve performance on the swift side.
 
 Along with this it would be valuable to make the swift container or a prefix configurable.
 
-## Encryption
+### Encryption
 In the future encrypting backups on swift may be desired. I envision doing this with a public/private key combo with the
 public key residing on the clients and the private being used for restores. Backups are unchanged other than encrypting
 the file just before sending as they compare two different days of the local disk.
 
-## Multi-Threading Swift
+### Multi-Threading Swift
 In my environment backups are completing in 4-8 hours, which is sufficient, if they slow multi-threading the swift
 uploads/deletes could speed things up.
 
-## Smart backup retries
+### Smart backup retries
 Occasionally a backup fails because of a disk, network or swift error. In those cases I simply rerun the backup job, however
 this creates the situation where there are two backups for one day and the retained backups in swift represent one less day
 of backups on that node. Better would be for the 2nd backup on the day to discover it is not first and replace the earlier
