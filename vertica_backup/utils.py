@@ -79,7 +79,7 @@ def delete_pickles(store, keep=1):
     """ Remove pickles in the store, keeping the specified number of the newest pickles.
     """
     pickles = store.list_pickles()
-    for pickle in pickles[len(pickles)-keep:]:
+    for pickle in pickles[keep:]:
         store.delete(pickle)
 
 
