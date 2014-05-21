@@ -46,8 +46,8 @@ class ObjectStore(object):
         raise NotImplementedError
 
     def list_pickles(self):
-        """ Return a list of all pickles found in the Object store, sorted by filename.
-            Since the pickles are named by date the oldest is first and the newest last.
+        """ Return a list of all pickles found in the Object store, reverse sorted by filename.
+            Since the pickles are named by date the reverse sorting ends up with the newest first and the oldest last.
         """
         pickle_list = []
         root_list = self.list_dir()
@@ -57,7 +57,7 @@ class ObjectStore(object):
                 if pickle_re.match(filename) is not None:
                     pickle_list.append(filename)
 
-            pickle_list.sort()
+            pickle_list.sort(reverse=True)
         return pickle_list
 
     def open(self, path, flags):

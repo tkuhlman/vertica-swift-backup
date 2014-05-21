@@ -104,9 +104,9 @@ class DirectoryMetadata(object):
             returns None if nothing is found.
         """
         if pickle_name is None:
-            pickles = store.list_pickles()  # The newest is the last since it is sorted and the names are dates
+            pickles = store.list_pickles()
             try:
-                pickle_name = pickles[-1]
+                pickle_name = pickles[0]
             except IndexError:
                 return None
 

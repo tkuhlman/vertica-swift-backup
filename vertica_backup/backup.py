@@ -121,12 +121,9 @@ def main(argv=None):
         log.info("\tUploaded %s in %d items" % (sizeof_fmt(size_uploaded), len(to_add)))
 
         with LogTime(log.info, "Determining items to delete, retaining %d backups" % config['retain']):
-            # Grab the pickle names I want to combine, relying on these being in order by date
+            # Grab the pickle names I want to combine, relying on these being in order by date, newest first
             pickles = swift_store.list_pickles()
-            if len(pickles) <= config['retain']:
-                combine_pickles = pickles
-            else:
-                combine_pickles = pickles[len(pickles) - config['retain']:]
+            combine_pickles = pickles[:config['retain']]
 
             # Take metadata in all these pickles combine.
             # It would be good to check that there is no overlap in filenames with different content.
