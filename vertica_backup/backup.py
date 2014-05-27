@@ -135,6 +135,7 @@ def main(argv=None):
             # Do a diff with all that is in swift, anything in swift but not in the combined set can be deleted.
             should_be_empty, to_del = combined_metadata.diff(swift_metadata)
             if len(should_be_empty) != 0:
+                exit_status = 1
                 log.error(
                     "ERROR: Found files in the %d combined retained backups that were not in swift.\n%s"
                     % (config['retain'], should_be_empty)
