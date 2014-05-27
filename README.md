@@ -85,13 +85,6 @@ The pickles are stored at the base_dir where the prefix_path starts also. These 
 they must explicitly be uploaded/deleted as needed.
 
 ## Future work
-### Use more swift containers
-Occasionally the get_metadata command fails and must be retried. I talked with some swift developers about this and they report that it
-is known that performance degrades when there are greater than 500k files in a container. Doing a retry nearly always works fine,
-but a container per node help improve performance on the swift side.
-
-Along with this it would be valuable to make the swift container or a prefix configurable.
-
 ### Encryption
 In the future encrypting backups on swift may be desired. I envision doing this with a public/private key combo with the
 public key residing on the clients and the private being used for restores. Backups are unchanged other than encrypting

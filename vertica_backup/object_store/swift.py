@@ -58,21 +58,19 @@ class SwiftStore(ObjectStore):
         self.prefix = prefix
 
         self.conn = self._connect_swift()
+
         if domain is None:
-            self.hostname, self.domain = socket.getfqdn().split('.', 1)
+            hostname, domain = socket.getfqdn().split('.', 1)
         elif hostname is None:
             if vnode is None:
                 raise SwiftException(
                     'Error creating SwiftStore: If domain is defined then either hostname or vnode must also be.'
                 )
-            self.domain = domain
-            self.container = self.domain  # Though set below I need it before running _get_hostname_from_vnode
-            self.hostname = self._get_hostname_from_vnode(vnode)
-        else:
-            self.hostname = hostname
-            self.domain = domain
-        log.debug("Domain = %s, hostname = %s" % (self.domain, self.hostname))
-        self.container = self.domain
+            domain = domain
+            hostname = self._get_hostname_from_vnode(domain, vnode)
+
+        self.container = "%s_%s" % (domain, hostname)
+        log.debug("Using container %s" % self.container)
 
     def _connect_swift(self):
         """ Start up a swift connection
@@ -81,7 +79,7 @@ class SwiftStore(ObjectStore):
         return swiftclient.client.Connection(self.url, str(self.tenant) + ':' + self.user, self.key)
 
     def _download(self, swift_path, local_path):
-        """ Download the file from swift_path to local_path. This does not apply the hostname prefix.
+        """ Download the file from swift_path to local_path.
         """
         log.debug('Download from swift %s' % swift_path)
         with open(local_path, 'wb') as local_file:
@@ -93,30 +91,16 @@ class SwiftStore(ObjectStore):
                 else:
                     log.error('Error downloading from swift %s. Details:\n%s' % (swift_path, ex.msg))
 
-    def _get_hostname_from_vnode(self, vnode):
+    def _get_hostname_from_vnode(self, domain, vnode):
         """ Discover a hostname by looking in swift for the hostname associated with a particular vertica node name.
             This assumes swift has an existing backup and there is a 1 to 1 mapping of vnode name to hostname.
         """
-        for hostname in self._list_dir('/'):
-            for node_name in self._list_dir(hostname):
+        for container in self.conn.get_account(prefix=domain):
+            for node_name in self.conn.get_object(container, '', query_string='delimiter=/'):
                 if vnode == os.path.basename(node_name):
-                    return hostname
+                    return container.split('_', 1)[1]
 
-        raise SwiftException('No hostname could be determined from swift for the vnode %s, domain %s' % (vnode, self.domain))
-
-    def _list_dir(self, path):
-        """ A non-recursive listing of a directory in swift.
-            Returns a list of item names.
-            This function does not apply the hostname prefix
-        """
-        if len(path) > 0 and path[-1] != '/':
-            path += '/'
-        if len(path) < 2:  # special syntax is needed to list the root
-            query_string = 'delimiter=/'  # By specifying the delimiter this is not recursive
-        else:
-            query_string = 'prefix=%s&delimiter=/' % path  # By specifying the delimiter this is not recursive
-
-        return self.conn.get_object(self.container, '', query_string=query_string)[1].splitlines()
+        raise SwiftException('No hostname could be determined from swift for the vnode %s, domain %s' % (vnode, domain))
 
     @staticmethod
     def _normalize_metadata(raw_metadata):
@@ -137,27 +121,8 @@ class SwiftStore(ObjectStore):
             clean[path] = file_metadata
         return clean
 
-    def _swift_path(self, path):
-        """ Return the path with the hostname prefix used by swift prepended
-        """
-        if path[0] == '/':
-            path = path[:-1]
-        return os.path.join(self.hostname, path)
-
-    def delete(self, path):
-        """ Delete an object """
-        swift_path = self._swift_path(path)
-        log.debug('Delete from swift %s' % swift_path)
-        try:
-            self.conn.delete_object(self.container, swift_path)
-        except swiftclient.ClientException, ex:
-            if ex.http_status == 404:
-                log.debug('Failed deleting %s from swift, file does not exist.' % swift_path)
-            else:
-                log.error('Error deleting from swift %s. Details:\n%s' % (swift_path, ex.msg))
-
     def _upload(self, local_path, swift_path):
-        """ Upload a file from the local_path to swift. The swift_path is assumed to have the hostname prefix applied.
+        """ Upload a file from the local_path to swift.
         """
         log.debug('Upload to swift %s' % local_path)
         with open(local_path, 'rb') as object_file:
@@ -168,17 +133,28 @@ class SwiftStore(ObjectStore):
                 self.conn = self._connect_swift()
                 self.conn.put_object(self.container, swift_path, object_file)
 
+    def delete(self, path):
+        """ Delete an object """
+        swift_path = path
+        log.debug('Delete from swift %s' % swift_path)
+        try:
+            self.conn.delete_object(self.container, swift_path)
+        except swiftclient.ClientException, ex:
+            if ex.http_status == 404:
+                log.debug('Failed deleting %s from swift, file does not exist.' % swift_path)
+            else:
+                log.error('Error deleting from swift %s. Details:\n%s' % (swift_path, ex.msg))
+
     def download(self, relative_path, local_path):
         """ Download the object from swift and store in local_path
             Return the size of the object if successful
         """
-        swift_path = self._swift_path(relative_path)
         file_path = os.path.join(local_path, relative_path)
         p_dir = os.path.dirname(file_path)
         if not os.path.exists(p_dir):
             os.makedirs(p_dir)
 
-        self._download(swift_path, file_path)
+        self._download(relative_path, file_path)
         return os.path.getsize(file_path)
 
     def get_metadata(self):
@@ -187,7 +163,7 @@ class SwiftStore(ObjectStore):
         #Setting format=json is the special sauce to get back metadata rather than just names
         #setting prefix= allows getting subsets of files
         # The response is an object with two items the first is the headers the 2nd the json body
-        query_string = 'prefix=%s&format=json' % self._swift_path(self.prefix)
+        query_string = 'prefix=%s&format=json' % self.prefix
 
         metadata = {}
 
@@ -209,11 +185,18 @@ class SwiftStore(ObjectStore):
         return metadata
 
     def list_dir(self, path='/'):
-        """ Returns the same as _list_dir except the hostname prefix is stripped.
+        """ A non-recursive listing of a directory in swift.
+            Returns a list of item names.
         """
-        dir_list = self._list_dir(self._swift_path(path))
-        clean_list = [item.replace(self.hostname + '/', '', 1) for item in dir_list]
-        return clean_list
+        if len(path) > 0 and path[-1] != '/':
+            path += '/'
+        if len(path) < 2:  # special syntax is needed to list the root
+            query_string = 'delimiter=/'  # By specifying the delimiter this is not recursive
+        else:
+            query_string = 'prefix=%s&delimiter=/' % path  # By specifying the delimiter this is not recursive
+
+        return self.conn.get_object(self.container, '', query_string=query_string)[1].splitlines()
+
 
     @contextmanager
     def open(self, path, flags):
@@ -222,25 +205,23 @@ class SwiftStore(ObjectStore):
         # Download the file to a temporary location
         tmp_fd, tmp_path = tempfile.mkstemp()
         os.close(tmp_fd)  # I will be opening/closing the file as needed, leaving this open complicates it
-        swift_path = self._swift_path(path)
 
         if (flags.find('r') != -1) or (flags.find('a') != -1):  # Used for reading/appending
-            self._download(swift_path, tmp_path)
+            self._download(path, tmp_path)
 
         yield_file = open(tmp_path, flags)
         yield yield_file
         yield_file.close()
 
         if (flags.find('w') != -1) or (flags.find('a') != 1):  # It was used for writing, upload the changed file
-            self._upload(tmp_path, swift_path)
+            self._upload(tmp_path, path)
 
         # Cleanup the temporary file descriptor and path
         os.remove(tmp_path)
 
     def upload(self, relative_path, base_dir):
         """ Upload a file from base_dir/relative_path to swift. Returns the size of the file if successful."""
-        swift_path = self._swift_path(relative_path)
         file_path = os.path.join(base_dir, relative_path)
-        self._upload(file_path, swift_path)
+        self._upload(file_path, relative_path)
         return os.path.getsize(file_path)
 
