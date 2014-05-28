@@ -75,8 +75,7 @@ class SwiftStore(ObjectStore):
     def _connect_swift(self):
         """ Start up a swift connection
         """
-        # I am using v1.0 auth only because that is what worked with cloudfuse so it is already setup if chef
-        return swiftclient.client.Connection(self.url, str(self.tenant) + ':' + self.user, self.key)
+        return swiftclient.client.Connection(self.url, self.user, self.key, tenant_name=self.tenant, auth_version=2)
 
     def _download(self, swift_path, local_path):
         """ Download the file from swift_path to local_path.
