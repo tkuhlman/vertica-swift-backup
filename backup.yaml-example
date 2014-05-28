@@ -10,6 +10,6 @@ retain: 7
 warning: 1320  # Alert if backup takes longer than warning minutes
 
 swift_key: password
-swift_tenant: a_long_number
+swift_tenant: a_tenant_name
 swift_url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v1.0/ 
 swift_user: my_user
