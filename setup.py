@@ -16,7 +16,7 @@ setup(
     keywords="vertica swift openstack cloud backup",
     url="https://github.com/tkuhlman/vertica-swift-backup",
     test_suite="nose.collector",
-    install_requires=["setuptools", "python-swiftclient", "PyYAML"],
+    install_requires=["setuptools", "python-swiftclient", "python-keystoneclient", "PyYAML"],
     packages=find_packages(exclude=["tests"]),
     include_package_data=True,
     data_files=[('share/vertica-swift-backup/examples', ['backup.yaml-example']),
