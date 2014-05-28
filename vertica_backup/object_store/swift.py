@@ -45,13 +45,14 @@ class SwiftStore(ObjectStore):
         Sets the swift container to the domain and puts all files in a subdir for the host.
     """
 
-    def __init__(self, key, tenant, url, user, prefix, domain=None, hostname=None, vnode=None):
+    def __init__(self, key, region, tenant, url, user, prefix, domain=None, hostname=None, vnode=None):
         """ Takes the config object from the backup.py.
             If the domain is specified either the hostname or vnode should be.
             If vnode is specified and hostname isn't the hostname will be discovered from what is in swift. This only
             works if existing backups are in swift and is useful primarily for restore jobs.
         """
         self.key = key
+        self.region = region
         self.tenant = tenant
         self.url = url
         self.user = user
@@ -71,11 +72,15 @@ class SwiftStore(ObjectStore):
 
         self.container = "%s_%s" % (domain, hostname)
         log.debug("Using container %s" % self.container)
+        if len(self.conn.get_account(prefix=self.container)[1]) == 0:
+            log.info("Creating container %s" % self.container)
+            self.conn.put_container(self.container)
 
     def _connect_swift(self):
         """ Start up a swift connection
         """
-        return swiftclient.client.Connection(self.url, self.user, self.key, tenant_name=self.tenant, auth_version=2)
+        return swiftclient.client.Connection(self.url, self.user, self.key, os_options={"region_name": self.region},
+                                             tenant_name=self.tenant, auth_version=2)
 
     def _download(self, swift_path, local_path):
         """ Download the file from swift_path to local_path.
@@ -195,7 +200,6 @@ class SwiftStore(ObjectStore):
             query_string = 'prefix=%s&delimiter=/' % path  # By specifying the delimiter this is not recursive
 
         return self.conn.get_object(self.container, '', query_string=query_string)[1].splitlines()
-
 
     @contextmanager
     def open(self, path, flags):

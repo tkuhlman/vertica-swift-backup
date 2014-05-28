@@ -64,8 +64,8 @@ def main(argv=None):
 
         # Setup swift/paths
         base_dir, prefix_dir = calculate_paths(config, v_node_name)
-        swift_store = SwiftStore(config['swift_key'], config['swift_tenant'], config['swift_url'], config['swift_user'],
-                                 prefix_dir, domain=domain, vnode=v_node_name)
+        swift_store = SwiftStore(config['swift_key'], config['swift_region'], config['swift_tenant'],
+                                 config['swift_url'], config['swift_user'], prefix_dir, domain=domain, vnode=v_node_name)
         fs_store = FSStore(base_dir, prefix_dir)
 
         # Get the metadata from the last restore (if any)
