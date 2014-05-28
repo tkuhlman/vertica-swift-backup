@@ -1,15 +1,17 @@
 # Vertica Swift Backup
 Backup/Restore [Vertica](http://www.vertica.com/) to/from OpenStack [Swift](https://wiki.openstack.org/wiki/Swift)
 
-Install with `pip install vertica-swift-backup`
-
 ## Goals
 - Nightly backups of the Vertica database sent to swift. The upload should take less than a day even for large databases.
 - Backups must be incrementally uploaded to conserve bandwidth used for each upload and space usage on swift.
 - Retention of historical backups (configurable)
 
-## Running Backups
-To backup a Vertica cluster on each node setup:
+## Installation and Configuration
+There is a chef recipe that will install and setup nodes as part of this [cookbook](https://github.com/hpcloud-mon/cookbooks-vertica/blob/master/recipes/backup.rb).
+
+To manually setup install with `pip install vertica-swift-backup` and configure as below.
+
+To configure a Vertica cluster for backup, on each node setup:
 - A backup directory. This should be on the same device as the Vertica data directory so that the hard link backup will work correctly.
 - A vbr configuration set to run a [hard link local](https://my.vertica.com/docs/7.0.x/HTML/index.htm#Authoring/AdministratorsGuide/BackupRestore/CreatingHardLinkLocalBackups.htm%3FTocPath%3DAdministrator's%20Guide%7CBacking%20Up%20and%20Restoring%20the%20Database%7C_____10) backup.
 - A configuration for this backup tool, sample in `backup.yaml-example`. Only one node should be configured to run vbr.
