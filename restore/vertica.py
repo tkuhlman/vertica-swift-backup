@@ -157,6 +157,7 @@ def prep_restore(domain, dbname='som'):
         #put(new_backup_info.name, '/tmp/new_backup.info')
         local('scp %s %s:/tmp/new_backup.info' % (tmp_file, env.host_string))
         sudo('cp /tmp/new_backup.info /var/vertica/data/backup/v_som_node*/*/*.info')
+        sudo('rm /tmp/new_backup.info')
         os.remove(tmp_file)
 
 

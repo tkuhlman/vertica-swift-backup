@@ -104,7 +104,8 @@ def main(argv=None):
         fs_store = FSStore(base_dir, prefix_dir)
         upload_time = datetime.today()
 
-        EpochFiles(os.path.join(base_dir, prefix_dir), config['snapshot_name'], upload_time).archive()
+        epoch_files = EpochFiles(os.path.join(base_dir, prefix_dir), config['snapshot_name'], upload_time)
+        epoch_files.archive()
 
         # Grab the local and swift metadata
         current_metadata = DirectoryMetadata(fs_store, upload_time)
@@ -155,6 +156,8 @@ def main(argv=None):
 
     except:
         log.exception('Unhandled Exception in Backup upload')
+        # Move the Epoch files back to their original names so a retry run does not encounter issues with them
+        epoch_files.restore()
         exit_status = 1
 
     # Status message and exit

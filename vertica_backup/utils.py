@@ -72,7 +72,7 @@ def choose_one(alist, msg):
         print('%d: %s' % (index, value))
 
     choosen = raw_input("\tPlease specify the index: ")
-    return alist[choosen]
+    return alist[int(choosen)]
 
 
 def delete_pickles(store, keep=1):
