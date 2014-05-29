@@ -1,0 +1,23 @@
+{
+	"id": "nodes",
+  "nodes": {
+    "vertica1.backuptest.com" : {
+      "ip": "192.168.10.2",
+      "broadcast": "192.168.10.255",
+      "network": "192.168.10.0",
+      "netmask": "255.255.255.0"
+    },
+    "vertica2.backuptest.com" : {
+      "ip": "192.168.10.3",
+      "broadcast": "192.168.10.255",
+      "network": "192.168.10.0",
+      "netmask": "255.255.255.0"
+    },
+    "vertica3.backuptest.com" : {
+      "ip": "192.168.10.4",
+      "broadcast": "192.168.10.255",
+      "network": "192.168.10.0",
+      "netmask": "255.255.255.0"
+    }
+  }
+}

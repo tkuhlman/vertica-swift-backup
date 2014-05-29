@@ -1,3 +1,25 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**
+
+- [Vertica Swift Backup](#vertica-swift-backup)
+  - [Goals](#goals)
+  - [Installation and Configuration](#installation-and-configuration)
+  - [Restores](#restores)
+  - [Tests](#tests)
+    - [Vagrant test cluster](#vagrant-test-cluster)
+  - [Architecture](#architecture)
+    - [Components](#components)
+      - [DirectoryMetadata](#directorymetadata)
+      - [ObjectStore](#objectstore)
+    - [A note about directory paths](#a-note-about-directory-paths)
+  - [Future work](#future-work)
+    - [Encryption](#encryption)
+    - [Multi-Threading Swift](#multi-threading-swift)
+    - [Smart backup retries](#smart-backup-retries)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 # Vertica Swift Backup
 Backup/Restore [Vertica](http://www.vertica.com/) to/from OpenStack [Swift](https://wiki.openstack.org/wiki/Swift)
 
@@ -37,6 +59,23 @@ git repo and installed in /usr/local/share/vertica-swift-backup. The fabric scri
 directories on a test cluster and run vbr after the download finishes and do so in such a way as to not destroy
 existing data on that cluster.
 
+## Tests
+The unit tests reside in the top level tests directory and can be run with nose.
+
+### Vagrant test cluster
+A vagrantfile and appropriate chef configuration are available in this repository so a 3 node vertica cluster can be setup and used for test
+backup/restore. To run install [Vagrant](http://www.vagrantup.com/), [Berkshelf](http://berkshelf.com/) and the vagrant berkshelf plugin
+
+Vertica must be downloaded from the [Vertica site](https://my.vertica.com/). Download these packages and place in the root of this repository.
+- vertica_7.0.1-0_amd64.deb
+- vertica-R-lang_7.0.1_amd64.deb
+
+The vertica::console recipe is not enabled by default but if it is added this package is also needed.
+- vertica-console_7.0.1-0_amd64.deb
+
+Create `data_bags/vertica/backup_credentials.json` with your swift credentials following the pattern in `data_bags/vertica/backup_credentials.json-template`
+Then simply run `vagrant up`
+
 ## Architecture
 There are a number of key points about how swift and vertica work that explain the architecture of this script.
 
@@ -66,9 +105,6 @@ incremental downloads as well as delayed cleanup of backups.
 ObjectStore is an abstract class which is implemented by SwiftStore and FSStore. These objects are used for all storage
 operations most notably the collecting of metadata for creation DirectoryMetadata objects and the download/upload as
 needed for backup/restore.
-
-#### Tests
-The tests reside in the top level tests directory and can be run with nose.
 
 ### A note about directory paths
 Any on disk backups have a *base_dir* where backups reside and a prefix_dir where the specific backup being worked

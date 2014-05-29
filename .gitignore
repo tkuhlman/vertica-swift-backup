@@ -1,2 +1,6 @@
+Berksfile.lock
 .idea
+.vagrant
+*.deb
 *.pyc
+data_bags/vertica/backup_credentials.json
