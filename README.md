@@ -29,14 +29,14 @@ Backup/Restore [Vertica](http://www.vertica.com/) to/from OpenStack [Swift](http
 - Retention of historical backups (configurable)
 
 ## Installation and Configuration
-There is a chef recipe that will install and setup nodes as part of this [cookbook](https://github.com/hpcloud-mon/cookbooks-vertica/blob/master/recipes/backup.rb).
+There is a chef recipe that will install and setup nodes as part of this [cookbook](https://github.com/hpcloud-mon/cookbooks-vertica/blob/master/recipes/backup.rb). This cookbook is used in the test Vagrant setup detailed below.
 
 To manually setup install with `pip install vertica-swift-backup` and configure as below.
 
 To configure a Vertica cluster for backup, on each node setup:
 - A backup directory. This should be on the same device as the Vertica data directory so that the hard link backup will work correctly.
 - A vbr configuration set to run a [hard link local](https://my.vertica.com/docs/7.0.x/HTML/index.htm#Authoring/AdministratorsGuide/BackupRestore/CreatingHardLinkLocalBackups.htm%3FTocPath%3DAdministrator's%20Guide%7CBacking%20Up%20and%20Restoring%20the%20Database%7C_____10) backup.
-- A configuration for this backup tool, sample in `backup.yaml-example`. Only one node should be configured to run vbr.
+- A configuration for this backup tool, sample in `/usr/local/share/vertica-swift-backup/backup.yaml-example`. Only one node should be configured to run vbr.
   In the specified swift account a container with the same name as the domain of the Vertica nodes should be created.
 - A cron job that runs the backup script, simply run the command with the config as an argument, ie `vertica_backup backup_config.yaml`.i
   The vbr step only runs on one node so that node should be set to start before the others. A link local backup
