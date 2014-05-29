@@ -49,7 +49,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   config.vm.define "vertica3" do |vertica|
     vertica.vm.hostname = 'vertica3.backuptest.com'
-    vertica.vm.network :private_network, ip: "192.168.10.3"
+    vertica.vm.network :private_network, ip: "192.168.10.4"
     vertica.vm.provision :chef_solo do |chef|
       chef.roles_path = "roles"
       chef.data_bags_path = "data_bags"

@@ -99,10 +99,10 @@ class SwiftStore(ObjectStore):
         """ Discover a hostname by looking in swift for the hostname associated with a particular vertica node name.
             This assumes swift has an existing backup and there is a 1 to 1 mapping of vnode name to hostname.
         """
-        for container in self.conn.get_account(prefix=domain):
-            for node_name in self.conn.get_object(container, '', query_string='delimiter=/'):
-                if vnode == os.path.basename(node_name):
-                    return container.split('_', 1)[1]
+        for container in self.conn.get_account(prefix=domain + '_')[1]:
+            for node_name in self.conn.get_object(container['name'], '', query_string='delimiter=/')[1].splitlines():
+                if vnode == node_name.strip('/'):
+                    return container['name'].split('_', 1)[1]
 
         raise SwiftException('No hostname could be determined from swift for the vnode %s, domain %s' % (vnode, domain))
 
