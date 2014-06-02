@@ -9,7 +9,7 @@ out of the way and making the necessary modifications to config.
 
 # Restoring a db
 
-** NOTE: The script has a number of hard coded paths and dbnames in it that need fixing. **
+** NOTE: The script has a number of hard coded paths in it that need fixing. **
 
 A few assumptions about the cluster you are restoring to include:
 - The nodes in that cluster must already be setup, this config is how the script discovers all nodes.

@@ -1,7 +1,4 @@
-""" Retore Vertica from Swift backups
-
-    I leverage fabric for this and use the existing commands to discover hosts. It is assumed these boxes are setup in chef using the SOM team recipes.
-    Most of the restore task will be the entry point
+""" Restore Vertica from Swift backups - see README.md
 
 Copyright 2014 Hewlett-Packard Development Company, L.P.
 
@@ -30,13 +27,12 @@ import tempfile
 from fabric.api import *
 from fabric.colors import *
 
-# todo remove the som refrences and make that db name configurable
 # todo setup detection of backup_dir, data_dir and catalog_dir from the the config files and remove references to /var/vertica, update readme
 
 
 @task
 @runs_once
-def restore():
+def restore(dbname=None, restore_domain=None):
     """ The master task that calls all the sub tasks walking through the entire process from download to restore to restoration of the previous db.
         Run this with the name of one node in the run list, other nodes will be discovered from there.
     """
@@ -50,33 +46,39 @@ def restore():
 
     with settings(hide('running', 'output')):
         current_domain = run('hostname -d').strip()
-    restore_domain = prompt('Which domain should be restored?')
+    if dbname is None:
+        dbname = prompt('Which db should be restored?')
+    if restore_domain is None:
+        restore_domain = prompt('Which domain should be restored?')
 
     # Discover details of the cluster
     primary_node = env.hosts[0]
-    cluster_nodes = get_cluster_nodes()
-    nodes = {}  # 'fqdn':'v_node name'
-    for vnode in cluster_nodes.iterkeys():
-        cluster_fqdn = socket.gethostbyaddr(cluster_nodes[vnode])[0]
-        nodes[cluster_fqdn.replace('-cluster', '')] = vnode  # This relies on the cluster ip naming scheme used by som
-    env.hosts = nodes.keys()
+    cluster_nodes = get_cluster_nodes(dbname)
+# todo the old code assumes hostnames with -cluster doesn't work with ips or other hostnames, the new assumes only 1 interface per node
+    env.hosts = cluster_nodes.values()
+#    nodes = {}  # 'fqdn':'v_node name'
+#    for vnode in cluster_nodes.iterkeys():
+#        cluster_fqdn = socket.gethostbyaddr(cluster_nodes[vnode])[0]
+#        nodes[cluster_fqdn.replace('-cluster', '')] = vnode  # This relies on a specific cluster ip naming scheme
+#    env.hosts = nodes.keys()
 
     execute(set_active_backup, suffix=restore_domain)
     # First download the db this will take awhile, so can be skipped when not needed
     if prompt('Skip Download? [y/n] ') != 'y':
         day = prompt('Please specify YYYY_MM_DD of the backup you would like to restore:')
-        execute(download_backup, restore_domain, day=day)
+        execute(download_backup, restore_domain, dbname, day=day)
 
     # Switch to the new
     prompt(magenta('Ready to disable the running db and switch to the restored db, press enter to continue.'))
     execute(stop_db, hosts=primary_node)
-    execute(switch_active_dataset, to_set='som_%s' % restore_domain, from_set='som_%s' % current_domain)
+    execute(switch_active_dataset, to_set='%s_%s' % (dbname, restore_domain),
+            from_set='%s_%s' % (dbname, current_domain), dbname=dbname, delete_from=True)
     try:
-        execute(prep_restore, restore_domain)
-        execute(vbr_restore, hosts=primary_node)
+        execute(prep_restore, restore_domain, dbname)
+        execute(vbr_restore, dbname, hosts=primary_node)
         #Link the server ssl certs again
-        execute(ssl_link)
-        execute(start_db, hosts=primary_node)
+        execute(ssl_link, dbname)
+        execute(start_db, dbname, hosts=primary_node)
     except SystemExit:
         prompt(red('Restore error encountered press enter to revert to previous db setup.'))
     else:
@@ -86,32 +88,34 @@ def restore():
         #Revert back to the previous db version
         execute(unset_active_backup, suffix=restore_domain)
         # Delete the restored data/catalog, the backup dir remains so a full restore is done each time
-        execute(switch_active_dataset, to_set='som_%s' % current_domain, from_set='som_%s' % restore_domain, delete_from=True)
-        execute(start_db, hosts=primary_node)
+        execute(switch_active_dataset, to_set='%s_%s' % (dbname, current_domain),
+                from_set='%s_%s' % (dbname, restore_domain), dbname=dbname, delete_from=True)
+        execute(start_db, dbname, hosts=primary_node)
 
 
 @task
 @parallel
-def download_backup(domain, dbname='som', day=''):
+def download_backup(domain, dbname, day=''):
     """ Download a Vertica backup from swift.
     """
     with settings(hide('running', 'output')):
-        # set the snapshot name in som_backup.yaml
+        # set the snapshot name in dbname_backup.yaml
         sudo('cp /opt/vertica/config/%s_backup.yaml /opt/vertica/config/%s_backup.yaml-backup' % (dbname, dbname))
         sudo(
             "sed 's/^snapshot_name:.*/snapshot_name: %s/' /opt/vertica/config/%s_backup.yaml-backup > /opt/vertica/config/%s_backup.yaml" %
             (domain.replace('.', '_') + '_' + dbname, dbname, dbname)
         )
 
+        # todo this assumes you are downloading to a cluster with an existing db
         data_v_node = sudo('ls /var/vertica/data/%s' % dbname)
         v_node = data_v_node[:data_v_node.index('_data')]
 
-    sudo('vertica_restore_download /opt/vertica/config/som_backup.yaml %s %s %s' % (domain, v_node, day))
+    sudo('vertica_restore_download /opt/vertica/config/%s_backup.yaml %s %s %s' % (dbname, domain, v_node, day))
 
 
 @task
 @runs_once
-def get_cluster_nodes(dbname='som'):
+def get_cluster_nodes(dbname):
     """ For a vertica node in the run list discover the remaining nodes in the cluster returning a
     """
     nodes = {}
@@ -123,29 +127,28 @@ def get_cluster_nodes(dbname='som'):
     return nodes
 
 
-@parallel
-def prep_restore(domain, dbname='som'):
+@task
+def prep_restore(domain, dbname):
     """ Prepare the backup for restore, performing all the steps needed to restore to an existing cluster.
     """
     #The backups sometimes have some rsync artifacts in them, remove these
     with(settings(hide('everything'), warn_only=True)):
-        sudo('rm /var/vertica/data/backup/v_som_node*/*/.deldelay*')
+        sudo('rm /var/vertica/data/backup/v_%s_node*/*/.deldelay*' % dbname)
 
     # config changesonly needed for restoring to a cluster with different ips, which is the case for all test restores, they are no-op otherwise.
     # update vbr snapshot name
     snapshot_name = domain.replace('.', '_') + '_' + dbname
     with(settings(hide('commands'))):
-        sudo('sed "s/snapshotName =.*/snapshotName = %s/" /opt/vertica/config/som_backup.ini > /tmp/som_backup.ini' % snapshot_name)
-        sudo('cp /tmp/som_backup.ini /opt/vertica/config/som_backup.ini')
+        sudo('sed "s/snapshotName =.*/snapshotName = %s/" /opt/vertica/config/%s_backup.ini > /tmp/%s_backup.ini' % (snapshot_name, dbname, dbname))
+        sudo('cp /tmp/%s_backup.ini /opt/vertica/config/%s_backup.ini' % (dbname, dbname))
 
     # Edit the expected ips in the backup config putting in the cluster ips, easier to do in python
     # TODO this is all pretty ugly code, come up with a better way to do this. There are lots if the python is run where the files exist
     # but since it isn't I have to be creative.
-    nodes = get_cluster_nodes()
+    nodes = get_cluster_nodes(dbname)
     with settings(hide('running', 'output')):
         new_backup_info = tempfile.NamedTemporaryFile(delete=False)
-        tmp_file = new_backup_info.name
-        for line in sudo('cat /var/vertica/data/backup/v_som_node*/*/*.info').splitlines():
+        for line in sudo('cat /var/vertica/data/backup/v_%s_node*/*/*.info' % dbname).splitlines():
             if line.startswith('name:'):
                 splits = line.split()
                 new_backup_info.write(splits[0] + ' address:%s ' % nodes[splits[0].split(':')[1]] + splits[2] + "\n")
@@ -153,28 +156,31 @@ def prep_restore(domain, dbname='som'):
                 new_backup_info.write(line + "\n")
 
         new_backup_info.close()
-        #For some reason basenode does not have sftp turned on
-        #put(new_backup_info.name, '/tmp/new_backup.info')
-        local('scp %s %s:/tmp/new_backup.info' % (tmp_file, env.host_string))
-        sudo('cp /tmp/new_backup.info /var/vertica/data/backup/v_som_node*/*/*.info')
-        sudo('rm /tmp/new_backup.info')
-        os.remove(tmp_file)
+        with(settings(hide('everything'), warn_only=True)):
+            sudo('rm /tmp/new_backup.info')
+        put(new_backup_info.name, '/tmp/new_backup.info')
+        sudo('cp /tmp/new_backup.info /var/vertica/data/backup/v_%s_node*/*/*.info' % dbname)
+        os.remove(new_backup_info.name)
 
 
 @task
-@parallel
-def ssl_link():
+def ssl_link(dbname=None):
     """ Link the ssl certs for Vertica into the catalog dir. """
-    sudo('ln -s /var/vertica/catalog/server* /var/vertica/catalog/som/v_som_node000?_catalog/')
+    # Todo I should work on a class variable for dbname so not every single task needs to ask for it
+    if dbname is None:
+        dbname = prompt('Which db should be restored?')
+    sudo('ln -s /var/vertica/server* /var/vertica/catalog/%s/v_%s_node000?_catalog/' % (dbname, dbname))
 
 
 @task
 @runs_once
-def start_db():
+def start_db(dbname=None):
     """ Start up vertica, run this on one box only"""
+    if dbname is None:
+        dbname = prompt('Which db should be restored?')
     dbpass = prompt('Please enter the db password needed to start up the database: ')
     with settings(hide('running')):
-        sudo('/opt/vertica/bin/admintools -t start_db -d som -p %s' % dbpass, user='dbadmin')
+        sudo('/opt/vertica/bin/admintools -t start_db -d %s -p %s' % (dbname, dbpass), user='dbadmin')
 
 
 @task
@@ -182,7 +188,11 @@ def start_db():
 def stop_db():
     """ Stop vertica, run this on one box only"""
     puts(magenta('Stopping database'))
-    sudo('/opt/vertica/bin/vsql -c "SELECT SHUTDOWN(true);"', user='dbadmin')  # Will prompt for the dbadmin password
+    with settings(warn_only=True):
+        shutdown = sudo('/opt/vertica/bin/vsql -c "SELECT SHUTDOWN(true);"', user='dbadmin')  # Will prompt for the dbadmin password
+    if shutdown.failed:
+        if prompt('Warning the shutdown failed, possibly because no db was running, continue? [y/n] ') == 'n':
+            abort('Aborting restore, db did not shutdown correctly.')
 
 
 @parallel
@@ -210,7 +220,7 @@ def unset_active_backup(suffix):
 
 
 @parallel
-def switch_active_dataset(to_set, from_set, dbname='som', delete_from=False):
+def switch_active_dataset(to_set, from_set, dbname, delete_from=False):
     """ Switches the active data/catalog directories used by vertica.
         This is used during test restores to move aside dev data to test the restored data and then again
         to switch it back.
@@ -220,13 +230,14 @@ def switch_active_dataset(to_set, from_set, dbname='som', delete_from=False):
     """
     #TODO: check to make sure the db is not running first
 
-    if delete_from:
-        sudo('rm -r /var/vertica/data/%s' % dbname)
-        sudo('rm -r /var/vertica/catalog/%s' % dbname)  # just the symbolic link
-        sudo('rm -r /var/vertica/data/catalog_%s' % dbname)
-    else:
-        sudo('mv /var/vertica/data/%s /var/vertica/data/%s' % (dbname, from_set))
-        sudo('mv /var/vertica/catalog/%s /var/vertica/catalog/%s' % (dbname, from_set))
+    with(settings(hide('everything'), warn_only=True)):
+        if delete_from:
+            sudo('rm -r /var/vertica/data/%s' % dbname)
+            sudo('rm -r /var/vertica/catalog/%s' % dbname)  # just the symbolic link
+            sudo('rm -r /var/vertica/data/catalog_%s' % dbname)
+        else:
+            sudo('mv /var/vertica/data/%s /var/vertica/data/%s' % (dbname, from_set))
+            sudo('mv /var/vertica/catalog/%s /var/vertica/catalog/%s' % (dbname, from_set))
 
     # If the to_set exists move it otherwise create empty dirs
     with(settings(hide('everything'), warn_only=True)):
@@ -243,11 +254,11 @@ def switch_active_dataset(to_set, from_set, dbname='som', delete_from=False):
 
 @task
 @runs_once
-def vbr_restore():
+def vbr_restore(dbname):
     """ Run the vbr restore command. This should only run on one node per cluster. """
     #with(settings(hide('everything'), warn_only = True)):
     with(settings(warn_only=True)):
-        vbr = sudo('/opt/vertica/bin/vbr.py --task restore --config-file /opt/vertica/config/som_backup.ini', user='dbadmin')
+        vbr = sudo('/opt/vertica/bin/vbr.py --task restore --config-file /opt/vertica/config/%s_backup.ini' % dbname, user='dbadmin')
 
     if vbr.failed:
         abort('The vbr restore command failed! Review logs in /tmp/vbr')
