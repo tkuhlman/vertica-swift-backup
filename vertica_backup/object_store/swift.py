@@ -190,12 +190,14 @@ class SwiftStore(ObjectStore):
         """ A non-recursive listing of a directory in swift.
             Returns a list of item names.
         """
-        if len(path) > 0 and path[-1] != '/':
+        if len(path) == 0 or path[-1] != '/':
             path += '/'
-        if len(path) < 2:  # special syntax is needed to list the root
-            query_string = 'delimiter=/'  # By specifying the delimiter this is not recursive
+
+        # By specifying the delimiter this list is not recursive
+        if path == '/':  # skip the prefix to list the root
+            query_string = 'delimiter=/'
         else:
-            query_string = 'prefix=%s&delimiter=/' % path  # By specifying the delimiter this is not recursive
+            query_string = 'prefix=%s&delimiter=/' % path
 
         return self.conn.get_object(self.container, '', query_string=query_string)[1].splitlines()
 
