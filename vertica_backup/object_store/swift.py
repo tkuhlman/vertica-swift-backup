@@ -67,7 +67,6 @@ class SwiftStore(ObjectStore):
                 raise SwiftException(
                     'Error creating SwiftStore: If domain is defined then either hostname or vnode must also be.'
                 )
-            domain = domain
             hostname = self._get_hostname_from_vnode(domain, vnode)
 
         self.container = "%s_%s" % (domain, hostname)
@@ -119,7 +118,7 @@ class SwiftStore(ObjectStore):
         for old_metadata in raw_metadata:
             if old_metadata['content_type'] == 'application/directory':
                 continue
-            path = old_metadata['name'].split('/', 1)[-1]
+            path = old_metadata['name']
             mtime = datetime.strptime(old_metadata['last_modified'], '%Y-%m-%dT%H:%M:%S.%f')
             file_metadata = FileMetadata(path, old_metadata['bytes'], mtime, old_metadata['hash'])
             clean[path] = file_metadata
@@ -137,9 +136,8 @@ class SwiftStore(ObjectStore):
                 self.conn = self._connect_swift()
                 self.conn.put_object(self.container, swift_path, object_file)
 
-    def delete(self, path):
+    def delete(self, swift_path):
         """ Delete an object """
-        swift_path = path
         log.debug('Delete from swift %s' % swift_path)
         try:
             self.conn.delete_object(self.container, swift_path)

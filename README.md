@@ -108,18 +108,15 @@ needed for backup/restore.
 
 ### A note about directory paths
 Any on disk backups have a *base_dir* where backups reside and a prefix_dir where the specific backup being worked
-with resides. The first element of the prefix path is the vertica node name,
-the second the snapshot name. The prefix path is specified this way to match
-the structure used by vbr. The scripts only deal with 1 snapshot at a time, keeping the prefix_path separate from the
+with resides. The first element of the prefix path is the vertica node name, the second the snapshot name.
+The prefix path is specified this way to match the structure used by vbr.
+The scripts only deal with 1 snapshot at a time, keeping the prefix_path separate from the
 base_dir allows multiple snapshots to exist.
 
-Swift has no base_dir, but rather a container name. The prefix dir is used in swift also. There is one major difference
-with swift, it contains the backups for all nodes in the cluster and
-on disk is only for 1 node at a time. Swift adds the fqdn of the host before the prefix path, this is handled by the
-*SwiftStore* and so should be a transparent implementation detail. However must be kept in mind when manually viewing the
-layout in swift versus that on disk.
+Swift has no base_dir, but rather a container name which is the domain name and hostname joined by a '_'.
+The prefix_dir works the same as in the disk object store.
 
-The pickles are stored at the base_dir where the prefix_path starts also. These are not part of the normal backup,
+The pickles are stored at the base_dir/container root where the prefix_path starts also. These are not part of the normal backup,
 they must explicitly be uploaded/deleted as needed.
 
 ## Future work
