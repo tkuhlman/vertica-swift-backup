@@ -109,7 +109,6 @@ class SwiftStore(ObjectStore):
     def _normalize_metadata(raw_metadata):
         """ Cleanup the metadata returned from swift
 
-            The hostname is added to the path in swift to help keep things organized, this must be stripped to the relative path.
             Convert the date to a datetime object.
             Skip any directories, I am looking at files only.
             Turn into a metadata dictionary with key the path and the value a FileMetaData object
