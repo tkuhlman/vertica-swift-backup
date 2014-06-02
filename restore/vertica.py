@@ -162,6 +162,11 @@ def prep_restore(domain, dbname):
         sudo('cp /tmp/new_backup.info /var/vertica/data/backup/v_%s_node*/*/*.info' % dbname)
         os.remove(new_backup_info.name)
 
+    #todo script this, if the file does not exist it is vertica 6 and can be skipped.
+    prompt("If running Vertica 7 and doing a test restore to another cluster an additional file needs to be edited.\n" +
+           "Change all backup ips to their restore equivalent in this file on each restore node, press enter when finished" +
+           "/var/vertica/data/backup/v_*_node*/*/var/vertica/catalog/mon/v_*_node*_catalog/Snapshots")
+
 
 @task
 def ssl_link(dbname=None):
