@@ -1,0 +1,28 @@
+# Changelog
+
+## 1.1.0 (2014-06-02)
+* Added a note and prompt about what is needed for test restores of vertica 7.
+* Made the restore script a bit more generic, no hard coded dbname now.
+* Fixed comment.
+* Clarified the code a bit here.
+* Fixes for issues in incremental backups with multiple containers.
+* Misc Fixes.
+* Minor readme cleanup.
+* Initial vagrant setup for testing.
+* Misc fixes from Craig's testing.
+* Added python-keystoneclient as a dependency, needed for version 2 auth.
+* Added a region to swift.
+* Mentioned chef cookbook in install instructions.
+* Minor update to clarify version 2 auth settings.
+* Move to auth version 2.
+* Moved to multiple swift containers.
+* Mark the backup as failed if there are files missing from swift.
+
+## 1.0.1 (2014-05-21)
+* The sorting of the pickle list was confusing, reversed it.
+* Craig Bryant pointed out that I was too quick on the previous fix.
+* Fixed error causing deleting of more backups that it should have.
+
+## 1.0.0 (2014-05-09)
+* Added pip install to README.
+* Split into a seperate repo and apply license.
