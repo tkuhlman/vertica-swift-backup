@@ -22,6 +22,7 @@
 
 # Vertica Swift Backup
 [![Build Status](https://travis-ci.org/tkuhlman/vertica-swift-backup.svg?branch=master)](https://travis-ci.org/tkuhlman/vertica-swift-backup)
+
 Backup/Restore [Vertica](http://www.vertica.com/) to/from OpenStack [Swift](https://wiki.openstack.org/wiki/Swift)
 
 ## Goals
