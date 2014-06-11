@@ -72,7 +72,7 @@ def restore(dbname=None, restore_domain=None):
     prompt(magenta('Ready to disable the running db and switch to the restored db, press enter to continue.'))
     execute(stop_db, hosts=primary_node)
     execute(switch_active_dataset, to_set='%s_%s' % (dbname, restore_domain),
-            from_set='%s_%s' % (dbname, current_domain), dbname=dbname, delete_from=True)
+            from_set='%s_%s' % (dbname, current_domain), dbname=dbname)
     try:
         execute(prep_restore, restore_domain, dbname)
         execute(vbr_restore, dbname, hosts=primary_node)
@@ -87,9 +87,9 @@ def restore(dbname=None, restore_domain=None):
     finally:
         #Revert back to the previous db version
         execute(unset_active_backup, suffix=restore_domain)
-        # Delete the restored data/catalog, the backup dir remains so a full restore is done each time
+        # Save the existing database, the backup dir remains so a full restore is done each time
         execute(switch_active_dataset, to_set='%s_%s' % (dbname, current_domain),
-                from_set='%s_%s' % (dbname, restore_domain), dbname=dbname, delete_from=True)
+                from_set='%s_%s' % (dbname, restore_domain), dbname=dbname)
         execute(start_db, dbname, hosts=primary_node)
 
 
@@ -133,7 +133,7 @@ def prep_restore(domain, dbname):
     """
     #The backups sometimes have some rsync artifacts in them, remove these
     with(settings(hide('everything'), warn_only=True)):
-        sudo('rm /var/vertica/data/backup/v_%s_node*/*/.deldelay*' % dbname)
+        sudo('rm -f /var/vertica/data/backup/v_%s_node*/*/.deldelay*' % dbname)
 
     # config changesonly needed for restoring to a cluster with different ips, which is the case for all test restores, they are no-op otherwise.
     # update vbr snapshot name
@@ -157,15 +157,15 @@ def prep_restore(domain, dbname):
 
         new_backup_info.close()
         with(settings(hide('everything'), warn_only=True)):
-            sudo('rm /tmp/new_backup.info')
+            sudo('rm -f /tmp/new_backup.info')
         put(new_backup_info.name, '/tmp/new_backup.info')
         sudo('cp /tmp/new_backup.info /var/vertica/data/backup/v_%s_node*/*/*.info' % dbname)
         os.remove(new_backup_info.name)
 
     #todo script this, if the file does not exist it is vertica 6 and can be skipped.
     prompt("If running Vertica 7 and doing a test restore to another cluster an additional file needs to be edited.\n" +
-           "Change all backup ips to their restore equivalent in this file on each restore node, press enter when finished" +
-           "/var/vertica/data/backup/v_*_node*/*/var/vertica/catalog/mon/v_*_node*_catalog/Snapshots")
+           "Change all backup ips to their restore equivalent in this file on each restore node, press enter when finished " +
+           "/var/vertica/data/backup/v_*_node*/*/var/vertica/catalog/%s/v_*_node*_catalog/Snapshots" % dbname)
 
 
 @task
@@ -174,7 +174,10 @@ def ssl_link(dbname=None):
     # Todo I should work on a class variable for dbname so not every single task needs to ask for it
     if dbname is None:
         dbname = prompt('Which db should be restored?')
-    sudo('ln -s /var/vertica/server* /var/vertica/catalog/%s/v_%s_node000?_catalog/' % (dbname, dbname))
+    with settings(hide('everything'), warn_only=True):
+        v7_location = sudo('ln -s /var/vertica/server* /var/vertica/catalog/%s/v_%s_node000?_catalog/' % (dbname, dbname))
+        if v7_location.failed:  # Vertica 6 installs have the certs in a different configuration
+            sudo('ln -s /var/vertica/catalog/server* /var/vertica/catalog/%s/v_%s_node000?_catalog/' % (dbname, dbname))
 
 
 @task
