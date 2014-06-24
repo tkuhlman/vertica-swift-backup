@@ -96,11 +96,11 @@ def main(argv=None):
                 size_downloaded += swift_store.download(relative_path, base_dir)
         log.info("\tDownloaded %s in %d items" % (sizeof_fmt(size_downloaded), len(to_download)))
 
-        EpochFiles(os.path.join(base_dir, prefix_dir), config['snapshot_name'], swift_metadata.date).restore()
-
         with LogTime(log.info, "Deleted %d items" % len(to_del)):
             for relative_path in to_del:
                 fs_store.delete(relative_path)
+
+        EpochFiles(os.path.join(base_dir, prefix_dir), config['snapshot_name'], swift_metadata.date).restore()
 
         # Save the swift metadata to the local fs, to indicate the restore is done
         swift_metadata.save(fs_store)
