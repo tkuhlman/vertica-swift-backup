@@ -175,8 +175,10 @@ def ssl_link(dbname=None):
     if dbname is None:
         dbname = prompt('Which db should be restored?')
     with settings(hide('everything'), warn_only=True):
-        v7_location = sudo('ln -s /var/vertica/server* /var/vertica/catalog/%s/v_%s_node000?_catalog/' % (dbname, dbname))
-        if v7_location.failed:  # Vertica 6 installs have the certs in a different configuration
+        v7_location = sudo('ls /var/vertica/server*')
+        if v7_location.succeeded:
+            sudo('ln -s /var/vertica/server* /var/vertica/catalog/%s/v_%s_node000?_catalog/' % (dbname, dbname))
+        else:  # Vertica 6 installs have the certs in a different configuration
             sudo('ln -s /var/vertica/catalog/server* /var/vertica/catalog/%s/v_%s_node000?_catalog/' % (dbname, dbname))
 
 
