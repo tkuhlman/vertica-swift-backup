@@ -240,26 +240,38 @@ def switch_active_dataset(to_set, from_set, dbname, delete_from=False):
     """
     #TODO: check to make sure the db is not running first
 
+    data_basepath = '/var/vertica/data/'
+    catalog_basepath = '/var/vertica/data/catalog_'
+    link_basepath = '/var/vertica/catalog/'  # just the symbolic link
+
     with(settings(hide('everything'), warn_only=True)):
+        sudo('rm -r {link_basepath}{dbname}'.format(link_basepath=link_basepath, dbname=dbname))
         if delete_from:
-            sudo('rm -r /var/vertica/data/%s' % dbname)
-            sudo('rm -r /var/vertica/catalog/%s' % dbname)  # just the symbolic link
-            sudo('rm -r /var/vertica/data/catalog_%s' % dbname)
+            sudo('rm -r {data_basepath}{dbname}'.format(data_basepath=data_basepath, dbname=dbname))
+            sudo('rm -r {catalog_basepath}{dbname}'.format(catalog_basepath=catalog_basepath, dbname=dbname))
         else:
-            sudo('mv /var/vertica/data/%s /var/vertica/data/%s' % (dbname, from_set))
-            sudo('mv /var/vertica/catalog/%s /var/vertica/catalog/%s' % (dbname, from_set))
+            sudo('mv {data_basepath}{dbname} {data_basepath}{from_set}'.format(data_basepath=data_basepath,
+                                                                               dbname=dbname, from_set=from_set))
+            sudo('mv {catalog_basepath}{dbname} {catalog_basepath}{from_set}'.format(catalog_basepath=catalog_basepath,
+                                                                                     dbname=dbname, from_set=from_set))
 
     # If the to_set exists move it otherwise create empty dirs
     with(settings(hide('everything'), warn_only=True)):
-        to_ls = sudo('ls /var/vertica/data/%s' % to_set)
+        to_ls = sudo('ls {data_basepath}{to_set}'.format(data_basepath=data_basepath, to_set=to_set))
     if to_ls.succeeded:
-        sudo('mv /var/vertica/data/%s /var/vertica/data/%s' % (to_set, dbname))
-        sudo('mv /var/vertica/catalog/%s /var/vertica/catalog/%s' % (to_set, dbname))
+        sudo('mv {data_basepath}{to_set} {data_basepath}{dbname}'.format(data_basepath=data_basepath,
+                                                                         to_set=to_set, dbname=dbname))
+        sudo('mv {catalog_basepath}{to_set} {catalog_basepath}{dbname}'.format(catalog_basepath=catalog_basepath,
+                                                                               to_set=to_set, dbname=dbname))
     else:
-        sudo('mkdir /var/vertica/data/%s' % dbname, user='dbadmin')
-        # vbr encounters 'Invalid cross-device link' when the catalog is on a different partition, despite this being the best practice setup
-        sudo('mkdir /var/vertica/data/catalog_%s' % dbname, user='dbadmin')
-        sudo('ln -s /var/vertica/data/catalog_%s /var/vertica/catalog/%s' % (dbname, dbname), user='dbadmin')
+        sudo('mkdir {data_basepath}{dbname}'.format(data_basepath=data_basepath, dbname=dbname), user='dbadmin')
+        sudo('mkdir {catalog_basepath}{dbname}'.format(catalog_basepath=catalog_basepath, dbname=dbname),
+             user='dbadmin')
+
+    # vbr encounters 'Invalid cross-device link' when the catalog is on a different partition, despite this being the best practice setup
+    sudo('ln -s {catalog_basepath}{dbname} {link_basepath}{dbname}'.format(catalog_basepath=catalog_basepath,
+                                                                           link_basepath=link_basepath, dbname=dbname),
+         user='dbadmin')
 
 
 @task
