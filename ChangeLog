@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 (2014-08-20)
+* Minor fixes to restore script when running multiple times
+* Added Travic CI builds
+* Formatting cleanup
+
 ## 1.1.0 (2014-06-02)
 * Added a note and prompt about what is needed for test restores of vertica 7.
 * Made the restore script a bit more generic, no hard coded dbname now.
