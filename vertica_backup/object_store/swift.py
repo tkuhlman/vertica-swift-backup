@@ -26,6 +26,7 @@ import logging
 import os
 import socket
 import tempfile
+import time
 
 import swiftclient
 
@@ -174,7 +175,8 @@ class SwiftStore(ObjectStore):
             try:
                 swift_files = json.loads(self.conn.get_object(self.container, '', query_string=query_string + marker)[1])
             except swiftclient.ClientException, ex:
-                log.error('Error retrieving metadata from swift, retrying. Details:\n%s' % ex.msg)
+                log.error('Error retrieving metadata from swift, retrying in 60 seconds. Details:\n%s' % ex.msg)
+                time.sleep(60)
                 self.conn = self._connect_swift()
                 swift_files = json.loads(self.conn.get_object(self.container, '', query_string=query_string + marker)[1])
             metadata.update(self._normalize_metadata(swift_files))
