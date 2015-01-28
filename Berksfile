@@ -4,7 +4,7 @@ if Gem::Specification::find_by_name('berkshelf').version.to_s[0] == '3'
   source 'https://api.berkshelf.com'
 end
 
-cookbook 'vertica', git: 'https://github.com/hpcloud-mon/cookbooks-vertica'
+cookbook 'vertica', git: 'https://github.com/tkuhlman/cookbooks-vertica'
 
 # community cookbooks
 cookbook 'apt'
