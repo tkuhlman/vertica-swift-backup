@@ -27,6 +27,7 @@ OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 from datetime import datetime
 import logging
 import os
+import requests.packages.urllib3
 import subprocess
 import sys
 import time
@@ -82,6 +83,7 @@ def main(argv=None):
         print "Usage: " + argv[0] + " <config file> "
         return 1
 
+    requests.packages.urllib3.disable_warnings()
     config_file = argv[1]
     config = yaml.load(open(config_file, 'r'))
 
@@ -92,19 +94,21 @@ def main(argv=None):
     # log_time is not used here so the timing can be reported to nagios
     start = time.time()
     exit_status = 0
+    epoch_files = None
 
     # Run the vbr backup command - The vbr run is quite fast typically completing in less than a minute
     if config['run_vbr']:
         run_vbr(config)  # If this fails it will sys.exit with an appropriately bad nagios error
 
     try:
+        catalog_dir = config['catalog_dir']
         base_dir, prefix_dir = calculate_paths(config)
         swift_store = SwiftStore(config['swift_key'], config['swift_region'], config['swift_tenant'],
                                  config['swift_url'], config['swift_user'], prefix_dir)
         fs_store = FSStore(base_dir, prefix_dir)
         upload_time = datetime.today()
 
-        epoch_files = EpochFiles(os.path.join(base_dir, prefix_dir), config['snapshot_name'], upload_time)
+        epoch_files = EpochFiles(os.path.join(base_dir, prefix_dir), catalog_dir, config['snapshot_name'], upload_time)
         epoch_files.archive()
 
         # Grab the local and swift metadata
@@ -154,10 +158,11 @@ def main(argv=None):
         delete_pickles(fs_store)
         delete_pickles(swift_store, config['retain'])
 
-    except:
+    except Exception:
         log.exception('Unhandled Exception in Backup upload')
         # Move the Epoch files back to their original names so a retry run does not encounter issues with them
-        epoch_files.restore()
+        if epoch_files is not None:
+            epoch_files.restore()
         exit_status = 1
 
     # Status message and exit

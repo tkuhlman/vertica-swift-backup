@@ -3,6 +3,7 @@ log_dir: /opt/vertica/log
 run_vbr: true  # Only one node in a cluster should be set to true
 backup_dir: /var/vertica/data/backup
 vbr_config: /opt/vertica/config/backup.ini
+catalog_dir: /var/vertica/catalog
 
 dbname: my_db
 snapshot_name: west
