@@ -158,10 +158,10 @@ def main(argv=None):
         delete_pickles(fs_store)
         delete_pickles(swift_store, config['retain'])
 
-    except Exception as e:
+    except Exception:
         log.exception('Unhandled Exception in Backup upload')
         # Move the Epoch files back to their original names so a retry run does not encounter issues with them
-        if None != epoch_files:
+        if epoch_files is not None:
             epoch_files.restore()
         exit_status = 1
 
